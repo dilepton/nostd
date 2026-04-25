@@ -10,7 +10,8 @@ namespace nostd
     VMA() = delete;
     ~VMA() = delete;
 
-    static const usize PAGE_SIZE;
+    static const usize PAGE_SIZE = 4096;
+    // TODO: read AT_PAGESZ from auxv (means /proc/self/auxv (not from _start))
 
     static usize page_round(usize bytes) noexcept {
       return (bytes + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
