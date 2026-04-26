@@ -56,37 +56,6 @@ namespace nostd
     return __builtin_strchr(s, c);
   }
 
-  /* ================== MEMORY BARRIERS ================== */
-  inline void mfence() noexcept {
-  #if defined (__x86_64__) || defined (__i386__)
-    __asm__ volatile ("mfence" ::: "memory");
-  #elif defined (__aarch64__)
-    __asm__ volatile ("dmb ish" ::: "memory");
-  #else
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-  #endif
-  }
-
-  inline void sfence() noexcept {
-  #if defined (__x86_64__) || defined (__i386__)
-    __asm__ volatile ("sfence" ::: "memory");
-  #elif defined (__aarch64__)
-    __asm__ volatile ("dmb ishst" ::: "memory");
-  #else
-    __atomic_thread_fence(__ATOMIC_RELEASE);
-  #endif
-  }
-
-  inline void lfence() noexcept {
-  #if defined (__x86_64__) || defined (__i386__)
-    __asm__ volatile ("lfence" ::: "memory");
-  #elif defined (__aarch64__)
-    __asm__ volatile ("dmb ishld" ::: "memory");
-  #else
-    __atomic_thread_fence(__ATOMIC_ACQUIRE);
-  #endif
-  }
-
   /* ================== CACHE FEATURES ================== */
   inline void cache_load_l1(const byte* ptr) noexcept { __builtin_prefetch(ptr, 0, 3); }
   inline void cache_load_l2(const byte* ptr) noexcept { __builtin_prefetch(ptr, 0, 2); }

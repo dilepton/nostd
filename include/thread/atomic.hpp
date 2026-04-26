@@ -12,6 +12,10 @@ namespace nostd
     SEQ_CST = __ATOMIC_SEQ_CST  // sequential consistent
   }; // enum MemoryOrder
 
+  inline void thread_fence(MemoryOrder mo = MemoryOrder::SEQ_CST) noexcept {
+    __atomic_thread_fence(mo);
+  }
+
   template<typename T>
   class Atomic {
   private: // Assertions & Usings & Constants
