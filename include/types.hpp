@@ -5,7 +5,8 @@ namespace nostd
 {
   /* === PRIMITIVES === */
   using byte = unsigned char;
-  using error_t = long;
+  using error_t = long; // 0 success, negative error
+  using res_t   = long; // positive result, negative error
 
   using i8  = signed char;
   using u8  = unsigned char;
