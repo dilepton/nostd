@@ -188,6 +188,75 @@ namespace nostd
     } // u32 for_each_cqe()
 
   /* ================================================================
+   *                       REGISTER API
+   * ================================================================ */
+   
+   /* ------ Input Output User Rings ------ */
+    res_t register_ring_fd() noexcept;
+    res_t unregister_ring_fd() noexcept;
+    res_t close_ring_fd() noexcept;
+
+    res_t register_probe(::io_uring_probe* p, u32 nr_ops) noexcept;
+    res_t register_restrictions(::io_uring_restriction* res, u32 nr_res) noexcept;
+    res_t enable_rings() noexcept; 
+
+#ifdef _GNU_SOURCE
+    res_t register_iowq_aff() noexcept;
+#endif // _GNU_SOURCE
+    res_t register_iowq_max_workers(u32* values) noexcept;
+    res_t unregister_iowq_aff() noexcept;
+
+    res_t register_region(::io_uring_mem_region_reg* reg) noexcept;
+      
+    res_t register_sync_cancel(const ::io_uring_sync_cancel_reg* reg) noexcept;
+    res_t register_wait_reg(::io_uring_reg_wait* reg, i32 nr) noexcept;
+
+    res_t register_sync_msg(io_uring_sqe* sqe) noexcept;
+
+    res_t register_eventfd(i32 efd) noexcept;
+    res_t register_eventfd_async(i32 efd) noexcept;
+    res_t unregister_eventfd() noexcept;
+
+    res_t register_clock(::io_uring_clock_register* arg) noexcept;
+
+    /* ------ Files  ------ */
+    res_t register_file_alloc_range(u32 off, u32 len) noexcept;
+
+    res_t register_files(const i32* files, u32 nr_files) noexcept;
+    res_t register_files_tags(const i32* files, const u64* tags, u32 nr) noexcept; 
+    res_t register_files_sparse(u32 nr) noexcept;
+    res_t register_files_update_tag(u32 off, const i32* files, const u64* tags, u32 nr_files) noexcept; 
+    res_t register_files_update(u32 off, const i32* files, u32 nr_files) noexcept;
+    res_t unregister_files() noexcept; 
+
+    /* ------ IO Buffers  ------ */
+    res_t register_buffers(const iovec* iovecs, u32 nr_iovecs) noexcept;
+    res_t unregister_buffers() noexcept;
+
+    res_t register_buf_ring(::io_uring_buf_reg* reg, u32 flags) noexcept;
+    res_t unregister_buf_ring(i32 bgid) noexcept;
+
+    res_t register_buffers_tags(const iovec* iovecs, const u64* tags, u32 nr) noexcept;
+    res_t register_buffers_update_tag(u32 off, const iovec* iovecs, const u64* tags, u32 nr) noexcept;
+
+    res_t register_buffers_sparse(u32 nr) noexcept;
+
+    res_t register_buf_status(u32 buf_group, u32* head_out) noexcept;
+    res_t register_clone_buffers(const io_uring& source, u32 dst_off, u32 src_off, u32 nr, u32 flags) noexcept;
+
+    /* ------ NAPI / ZC/IFQ / BPF  ------ */
+    res_t register_napi(::io_uring_napi* napi) noexcept;
+    res_t unregister_napi(::io_uring_napi* napi) noexcept;
+
+    res_t register_personality() noexcept;
+    res_t unregister_personality(i32 id) noexcept;
+
+    res_t register_ifq(::io_uring_zcrx_ifq_reg* reg) noexcept;
+
+    // res_t register_bpf_filter(::io_uring_bpf* bpf) noexcept;
+    // res_t register_bpf_filter_task(::io_uring_bpf* bpf) noexcept;
+
+  /* ================================================================
    *                          PREP
    * ================================================================ */
     static inline void prep_rw(io_uring_sqe* sqe, int op, int fd, const void* addr, u32 len, u64 off) noexcept {
