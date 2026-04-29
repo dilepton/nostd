@@ -34,13 +34,14 @@ io_uring::io_uring(u32 entries, io_uring_params& p, byte* buf, usize buf_sz) noe
 
 io_uring::~io_uring() noexcept {
   if (_int_flags & Flags::INT_FLAG_REG_RING) {
-    // unreg
+    (void) unregister_ring_fd();
   }
 
   unmap_rings();
   if (_ringfd >= 0) {
     (void) __nostd_syscall1(sysno::CLOSE, _ringfd);
-    _ringfd = -1;
+    _ringfd  = -1;
+    _enterfd = -1;
   }
 }
 
@@ -83,10 +84,7 @@ error_t io_uring::init(u32 entries, io_uring_params& p, byte* buf, usize buf_sz)
   _flags = p.flags;
   _features = p.features;
   _ringfd = static_cast<i32>(fd);
-
-  if (p.flags & IORING_SETUP_REGISTERED_FD_ONLY) {
-    _int_flags |= INT_FLAG_REG_RING | INT_FLAG_REG_REG_RING;
-  }
+  _enterfd = _ringfd;
 
   if ((_flags & (IORING_SETUP_IOPOLL | IORING_SETUP_SQPOLL)) == IORING_SETUP_IOPOLL) {
     _int_flags |= INT_FLAG_CQ_ENTER;

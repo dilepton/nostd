@@ -93,6 +93,7 @@ namespace nostd
 
     u32 _flags{0};
     i32 _ringfd{-1};
+    i32 _enterfd{-1};
     u32 _features{0};
     u8  _int_flags{0};
 
