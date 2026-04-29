@@ -52,8 +52,6 @@ namespace nostd
     Atomic<u32&> tail()  noexcept { return Atomic<u32&>(ktail);  }
     Atomic<u32&> flags() noexcept { return Atomic<u32&>(kflags); }
 
-    u32 ready() const noexcept { return sqe_tail - sqe_head; }
-    u32 space_left() const noexcept { return ring_entries - ready(); }
     u32 flush() noexcept;
   }; // struct io_uring_sq
 
@@ -98,7 +96,6 @@ namespace nostd
     u8  _int_flags{0};
 
   private: // Methods
-
     constexpr u32 roundup_pow2(u32 d) noexcept {
       if (d <= 1) return 1;
       if (d > (1u << 31)) return 1u << 31;
@@ -123,6 +120,9 @@ namespace nostd
 
     // Completion
     error_t __get_cqe(io_uring_cqe** cqe_out, u32 submit, u32 wait_nr) noexcept;
+    error_t __get_cqe_ext(io_uring_cqe** cqe_out, u32 submit, u32 wait_nr,
+                          __kernel_timespec* ts, const void* sigmask) noexcept;
+
     res_t do_register(u32 opcode, const void* arg, u32 nr_args) noexcept;
 
   public: // Constructors & Destructots & Operators
@@ -148,24 +148,52 @@ namespace nostd
     }
 
     static void free_probe(::io_uring_probe* probe) noexcept;
+
+  /* ================================================================
+   *                          QUEUE 
+   * ================================================================ */
+
+   /* ------ Submission ------ */
+    u32 sq_ready() const noexcept {
+      const u32 khead = (_flags & IORING_SETUP_SQPOLL)
+        ? __atomic_load_n(_sq.khead, __ATOMIC_ACQUIRE)
+        : *_sq.khead;
+      return _sq.sqe_tail - khead;
+    }
+
+    u32 sq_space_left() const noexcept { return _sq.ring_entries - sq_ready(); }
+
     io_uring_sqe* get_sqe() noexcept;
-    u32 sq_ready()      const noexcept { return _sq.ready(); }
-    u32 sq_space_left() const noexcept { return _sq.space_left(); }
 
     res_t submit() noexcept;
     res_t submit_and_wait(u32 wait_nr) noexcept;
 
-    // Completion
+   /* ------ Completion ------ */
     u32 cq_ready() const noexcept { return _cq.ready(); }
+
+    bool cq_has_overflow() const noexcept {
+      return __atomic_load_n(_sq.kflags, __ATOMIC_RELAXED) & IORING_SQ_CQ_OVERFLOW;
+    }
 
     io_uring_cqe* peek_cqe() noexcept;
     error_t wait_cqe(io_uring_cqe** cqe) noexcept;
     error_t wait_cqe_nr(io_uring_cqe** cqe, u32 wait_nr) noexcept;
 
+    error_t wait_cqe_timeout(io_uring_cqe** cqe, __kernel_timespec* ts) noexcept;
+    error_t wait_cqes(io_uring_cqe** cqe, u32 wait_nr, __kernel_timespec* ts, const void* sigmask) noexcept;
+    res_t   submit_and_wait_timeout(io_uring_cqe** cqe, u32 wait_nr, __kernel_timespec* ts, const void* sigmask) noexcept;
+
+    u32 peek_batch_cqe(io_uring_cqe** cqes, u32 count) noexcept;
+
+    res_t get_events() noexcept;
+    res_t submit_and_get_events() noexcept;
+
     void cq_advance(u32 n) noexcept;
+
     static inline u32 cqe_nr(const io_uring_cqe* cqe) noexcept {
       return (cqe->flags & IORING_CQE_F_32) ? 2u : 1u;
     }
+
     void cqe_seen(io_uring_cqe* cqe) noexcept { if (cqe) cq_advance(cqe_nr(cqe)); }
 
     template<typename F>
@@ -352,10 +380,11 @@ namespace nostd
 
     static inline void set_target_fixed_file(io_uring_sqe* sqe, u32 file_index) noexcept {
       if (file_index == IORING_FILE_INDEX_ALLOC) --file_index;
+
       sqe->file_index = file_index + 1;
     }
 
-    // NOP
+    /* ------ NOP ------ */
     static inline void prep_nop(io_uring_sqe* sqe) noexcept {
       prep_rw(sqe, IORING_OP_NOP, -1, nullptr, 0, 0);
     }
@@ -1006,22 +1035,6 @@ namespace nostd
       sqe->flags = IOSQE_FIXED_FILE;
       sqe->install_fd_flags = flags;
     }
-
-    // Buffers 
-    inline i32  buf_ring_mask(u32 ring_entries) noexcept;
-    inline void buf_ring_init(io_uring_buf_ring* br) noexcept;
-    inline void buf_ring_add(io_uring_buf_ring* br, void* addr, u32 len, u16 bid, i32 mask, i32 buf_offset) noexcept;
-    inline void buf_ring_advance(io_uring_buf_ring* br, i32 count) noexcept;
-
-    // Recvmsg helpers
-    inline io_uring_recvmsg_out* recvmsg_validate(void* buf, i32 buf_len, msghdr* msgh) noexcept;
-    inline void*    recvmsg_name(io_uring_recvmsg_out* o) noexcept;
-    inline cmsghdr* recvmsg_cmsg_firsthdr(io_uring_recvmsg_out* o, msghdr* msgh) noexcept;
-    inline cmsghdr* recvmsg_cmsg_nexthdr(io_uring_recvmsg_out* o, msghdr* msgh, cmsghdr* cmsg) noexcept;
-    inline void*    recvmsg_payload(io_uring_recvmsg_out* o, msghdr* msgh) noexcept;
-    inline u32      recvmsg_payload_length(io_uring_recvmsg_out* o, i32 buf_len, msghdr* msgh) noexcept;
-
-    // Register
 
   }; // class io_uring
 
