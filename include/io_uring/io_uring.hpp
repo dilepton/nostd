@@ -107,7 +107,7 @@ namespace nostd
 
     // SYSCALLs
     res_t   io_uring_setup(u32 entries, io_uring_params* p) noexcept;
-    error_t io_uring_register() noexcept;
+    error_t io_uring_register(i32 fd, u32 opcode, const void* arg, u32 nr_args) noexcept;
     res_t   io_uring_enter(u32 to_submit, u32 min_complete, u32 flags, void* arg, usize argsz) noexcept;
 
     // Setup
@@ -123,6 +123,7 @@ namespace nostd
 
     // Completion
     error_t __get_cqe(io_uring_cqe** cqe_out, u32 submit, u32 wait_nr) noexcept;
+    res_t do_register(u32 opcode, const void* arg, u32 nr_args) noexcept;
 
   public: // Constructors & Destructots & Operators
     explicit io_uring(u32 entries, u32 flags = 0) noexcept;
