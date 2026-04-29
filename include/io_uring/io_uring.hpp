@@ -188,6 +188,79 @@ namespace nostd
     } // u32 for_each_cqe()
 
   /* ================================================================
+   *                       IO Helpers API
+   * ================================================================ */
+
+   /* ------ Buffer Ring ------ */
+    ::io_uring_buf_ring* setup_buf_ring(u32 nentries, u16 bgid, u16 flags, error_t* err) noexcept;
+    res_t free_buf_ring(::io_uring_buf_ring* br, u32 nentries, u16 bgid)  noexcept;
+    void buf_ring_cq_advance(::io_uring_buf_ring* br, u32 count) noexcept;
+    res_t buf_ring_available(::io_uring_buf_ring* br, u16 bgid) noexcept;
+
+    static inline u32 buf_ring_mask(u32 ring_entries) noexcept {
+      return ring_entries - 1;
+    }
+
+    static inline void buf_ring_init(::io_uring_buf_ring* br) noexcept {
+      br->tail = 0;
+    }
+
+    static inline void buf_ring_add(::io_uring_buf_ring* br, void* addr, u32 len, u16 bid, i32 mask, i32 buf_offset) noexcept {
+      ::io_uring_buf* buf = &br->bufs[(br->tail + buf_offset) & mask];
+      buf->addr = reinterpret_cast<u64>(addr);
+      buf->len  = len;
+      buf->bid  = bid;
+    }
+
+    static inline void buf_ring_advance(::io_uring_buf_ring* br, i32 count) noexcept {
+      const u16 new_tail = static_cast<u16>(br->tail + count);
+      __atomic_store_n(&br->tail, new_tail, __ATOMIC_RELEASE);
+    }
+
+   /* ------ Msghdr Helpers ------ */
+    static inline ::io_uring_recvmsg_out* recvmsg_validate(void* buf, i32 buf_len, msghdr* msgh) noexcept {
+      const usize header = msgh->controllen + msgh->namelen + sizeof(::io_uring_recvmsg_out);
+      if (buf_len < 0 || static_cast<usize>(buf_len) < header) return nullptr;
+      return static_cast<::io_uring_recvmsg_out*>(buf);
+    }
+
+    static inline void* recvmsg_name(::io_uring_recvmsg_out* o) noexcept {
+      return static_cast<void*>(o + 1);
+    }
+
+    static inline cmsghdr* recvmsg_cmsg_firsthdr(::io_uring_recvmsg_out* o, msghdr* msgh) noexcept {
+      if (o->controllen < sizeof(cmsghdr)) return nullptr;
+      return reinterpret_cast<cmsghdr*>(
+        static_cast<byte*>(recvmsg_name(o)) + msgh->namelen);
+    }
+
+    static inline cmsghdr* recvmsg_cmsg_nexthdr(::io_uring_recvmsg_out* o, msghdr* msgh, cmsghdr* cmsg) noexcept {
+      constexpr usize CMSG_ALIGN_MASK = sizeof(long) - 1;
+      if (cmsg->len < sizeof(cmsghdr)) return nullptr;
+
+      byte* end = reinterpret_cast<byte*>(recvmsg_cmsg_firsthdr(o, msgh)) + o->controllen;
+      cmsg = reinterpret_cast<cmsghdr*>(
+        reinterpret_cast<byte*>(cmsg) + ((cmsg->len + CMSG_ALIGN_MASK) & ~CMSG_ALIGN_MASK));
+
+      if (reinterpret_cast<byte*>(cmsg + 1) > end) return nullptr;
+      if (reinterpret_cast<byte*>(cmsg) + ((cmsg->len + CMSG_ALIGN_MASK) & ~CMSG_ALIGN_MASK) > end) return nullptr;
+
+      return cmsg;
+    }
+
+    static inline void* recvmsg_payload(::io_uring_recvmsg_out* o, msghdr* msgh) noexcept {
+      return static_cast<void*>(
+        static_cast<byte*>(recvmsg_name(o)) + msgh->namelen + msgh->controllen);
+    }
+
+    static inline u32 recvmsg_payload_length(::io_uring_recvmsg_out* o, usize buf_len, msghdr* msgh) noexcept {
+      const usize payload_start = reinterpret_cast<usize>(recvmsg_payload(o, msgh));
+      const usize payload_end   = reinterpret_cast<usize>(o) + buf_len;
+
+      return static_cast<u32>(payload_end - payload_start);
+    }
+
+  /* ================================================================
    *                       REGISTER API
    * ================================================================ */
    
