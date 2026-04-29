@@ -720,6 +720,12 @@ namespace nostd
       sqe->ioprio |= IORING_RECV_MULTISHOT;
     }
 
+    static inline void prep_recv_bundle(io_uring_sqe* sqe, i32 sockfd, u32 len, i32 flags) noexcept {
+      prep_recv(sqe, sockfd, nullptr, len, flags);
+
+      sqe->ioprio |= IORING_RECVSEND_BUNDLE;
+    }
+
     static inline void prep_recvmsg(io_uring_sqe* sqe, i32 fd, msghdr* msg, u32 flags) noexcept {
       prep_rw(sqe, IORING_OP_RECVMSG, fd, msg, 1, 0);
 
@@ -952,6 +958,14 @@ namespace nostd
       sqe->addr = reinterpret_cast<u64>(addr);
       sqe->addr3 = reinterpret_cast<u64>(addrlen);
       sqe->optlen = static_cast<u32>(peer);
+    }
+
+    static inline void prep_cmd_setsockopt(io_uring_sqe* sqe, i32 fd, i32 level, i32 optname, const void* optval, i32 optlen) noexcept {
+      prep_cmd_sock(sqe, SOCKET_URING_OP_SETSOCKOPT, fd, level, optname, const_cast<void*>(optval), optlen);
+    }
+
+    static inline void prep_cmd_getsockopt(io_uring_sqe* sqe, i32 fd, i32 level, i32 optname, void* optval, i32 optlen) noexcept {
+      prep_cmd_sock(sqe, SOCKET_URING_OP_GETSOCKOPT, fd, level, optname, optval, optlen);
     }
 
     static inline void prep_cmd_discard(io_uring_sqe* sqe, i32 fd, u64 offset, u64 nbytes) noexcept {
