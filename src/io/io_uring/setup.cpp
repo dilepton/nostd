@@ -239,6 +239,38 @@ void io_uring::unmap_rings() noexcept {
   _sq.unmap_ring();
 }
 
+/* ========== PROBE ========== */
+
+::io_uring_probe* io_uring::get_probe_ring() noexcept {
+  constexpr usize PROBE_BYTES = sizeof(::io_uring_probe) + 256 * sizeof(::io_uring_probe_op);
+  static_assert(PROBE_BYTES <= VMA::PAGE_SIZE, "probe exceeds one page");
+
+  byte* p = VMA::mmap(nullptr, VMA::PAGE_SIZE, Protection::RW,
+                      MapFlags::PRIVATE | MapFlags::ANONYMOUS, -1, 0);
+  if (is_error(p)) return nullptr;
+
+  auto* probe = reinterpret_cast<::io_uring_probe*>(p);
+  memset(probe, 0, PROBE_BYTES);
+
+  if (register_probe(probe, 256) < 0) {
+    (void) VMA::munmap(p, VMA::PAGE_SIZE);
+    return nullptr;
+  }
+
+  return probe;
+}
+
+::io_uring_probe* io_uring::get_probe() noexcept {
+  io_uring ring(2);
+  if (!ring) return nullptr;
+  return ring.get_probe_ring();
+}
+
+void io_uring::free_probe(::io_uring_probe* probe) noexcept {
+  if (!probe) return;
+  (void) VMA::munmap(reinterpret_cast<byte*>(probe), VMA::PAGE_SIZE);
+}
+
 error_t io_uring::dontfork() noexcept {
   if (!_sq.ring_ptr || !_sq.sqes || !_cq.ring_ptr) return E::INVAL;
 

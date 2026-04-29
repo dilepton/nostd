@@ -139,8 +139,15 @@ namespace nostd
   public: // Methods
 
     // Probe
+    ::io_uring_probe* get_probe_ring() noexcept;
+    static ::io_uring_probe* get_probe() noexcept;
 
-    // Submission
+    static inline bool opcode_supported(const ::io_uring_probe* p, i32 op) noexcept {
+      if (!p || op < 0 || op > p->last_op) return false;
+      return (p->ops[op].flags & IO_URING_OP_SUPPORTED) != 0;
+    }
+
+    static void free_probe(::io_uring_probe* probe) noexcept;
     io_uring_sqe* get_sqe() noexcept;
     u32 sq_ready()      const noexcept { return _sq.ready(); }
     u32 sq_space_left() const noexcept { return _sq.space_left(); }
